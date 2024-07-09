@@ -1,0 +1,117 @@
+<!doctype html>
+<html>
+	<head>
+		<title>WebSocket Test</title>
+		<script>
+			window.onload = function() {
+				var ws = new WebSocket('ws://localhost:8080/aoeu');
+
+				ws.onmessage = function(rawMessage) {
+					var { type, value } = JSON.parse(rawMessage.data);
+
+					console.log(type, value);
+
+					if (type == 'auctionDetails') {
+						var state = value.state;
+						var bids = value.bids;
+						var highBid = bids[0];
+
+						document.querySelector('#state').textContent = state;
+
+						if (!highBid) {
+							document.querySelector('#bids').replaceChildren();
+						}
+						else {
+							var highBidPrice = parseInt(highBid.price);
+							var price = document.forms['bid-form'].elements.price.value;
+
+							document.forms['bid-form'].elements.price.min = highBidPrice;
+							document.forms['bid-form'].elements.price.value = Math.max(highBidPrice, price);
+
+							var bidsElement = document.querySelector('#bids');
+
+							var newBidElements = [];
+
+							bids.forEach(function(bid) {
+								var bidElement = document.querySelector('#bid').content.cloneNode(true);
+
+								bidElement.querySelector('.bid-price').textContent = bid.price;
+								bidElement.querySelector('.bid-owner').textContent = bid.owner;
+
+								newBidElements.push(bidElement);
+							});
+
+							bidsElement.replaceChildren(...newBidElements);
+						}
+					}
+				};
+
+				setInterval(function() {
+					ws.send(JSON.stringify({
+						type: 'ping'
+					}));
+				}, 5000);
+
+				document.forms['admin-form'].addEventListener('submit', function(event) {
+					var action = event.submitter.name;
+
+					ws.send(JSON.stringify({
+						type: 'admin',
+						value: {
+							action: action
+						}
+					}));
+					event.preventDefault();
+				});
+
+				document.forms['bid-form'].addEventListener('submit', function(event) {
+					var owner = document.forms['bid-form'].elements.owner.value;
+					var price = parseInt(document.forms['bid-form'].elements.price.value);
+
+					ws.send(JSON.stringify({
+						type: 'bid',
+						value: {
+							owner: owner,
+							price: price
+						}
+					}));
+
+					event.preventDefault();
+				});
+			};
+		</script>
+	</head>
+	<body>
+		<h1 id="state"></h1>
+
+		<form id="admin-form">
+			<button type="submit" name="start">Start Auction</button>
+			<button type="submit" name="reset">Reset Auction</button>
+		</form>
+
+		<form id="bid-form">
+			<select name="owner">
+				<option>Anthony</option>
+				<option>Brett</option>
+				<option>Jason</option>
+				<option>Justin</option>
+				<option>Keyon</option>
+				<option>Koci/Mueller</option>
+				<option>Luke</option>
+				<option>Mike</option>
+				<option>Mitch</option>
+				<option>Patrick</option>
+				<option>Quinn</option>
+				<option>Schexes</option>
+			</select>
+			<input name="price" type="number" value="1" min="1" max="1000" />
+			<button type="submit">Bid</button>
+		</form>
+
+		<ul id="bids"></ul>
+
+		<template id="bid">
+			<li>$<strong class="bid-price"></strong> to <strong class="bid-owner"></strong></li>
+		</template>
+	</body>
+</html>
